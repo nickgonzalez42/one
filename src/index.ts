@@ -2,7 +2,7 @@ import express, { Express, Request, Response } from "express";
 import dotenv from "dotenv";
 import axios from "axios";
 
-import { Bicyclist, Crash, IBicyclist, ICrash } from "../types";
+import { Bicyclist, Crash, IBicyclist, ICrash } from "./types";
 
 var cors = require("cors");
 
