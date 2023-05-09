@@ -6,8 +6,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const axios_1 = __importDefault(require("axios"));
+var cors = require("cors");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
+// Change to not allow requests from all sources
+// Documentation: https://expressjs.com/en/resources/middleware/cors.html
+app.use(cors());
 const port = process.env.PORT;
 const bicycle_base = "https://data.cityofchicago.org/resource/u6pd-qa9d.json?person_type=BICYCLE&$limit=100";
 function ensure(argument, message = "This value was promised to be there.") {
@@ -72,9 +76,10 @@ app.get("/", (req, res) => {
         .then((response) => {
         for (let i = 0; i < response.data.length; i++) {
             currentBicyclists.push(fillBicyclistData(response.data[i]));
+            // currentBicyclists.push(new Bicyclist(response.data));
             crashIDs.push(`'${response.data[i].crash_record_id}'`);
         }
-        let CrashIDsStr = crashIDs.join(", ");
+        console.log(currentBicyclists);
         axios_1.default
             .get(`https://data.cityofchicago.org/resource/85ca-t3if.json?$where=crash_record_id in(${crashIDs})`)
             .then((response) => {
@@ -82,6 +87,8 @@ app.get("/", (req, res) => {
                 // The ensure method is checking if currentBicyclists is empty.
                 const found = ensure(currentBicyclists.find((element) => element.crash_record_id === response.data[i].crash_record_id));
                 crashResults.push(fillCrashData(found, response.data[i]));
+                // crashResults.push(new Crash(response.data));
+                console.log(crashResults);
             }
             res.json(crashResults);
         })

@@ -2,11 +2,16 @@ import express, { Express, Request, Response } from "express";
 import dotenv from "dotenv";
 import axios from "axios";
 
-import { Bicyclist, Crash } from "./types";
+import { Bicyclist, Crash, IBicyclist, ICrash } from "./types";
+
+var cors = require("cors");
 
 dotenv.config();
 
 const app: Express = express();
+// Change to not allow requests from all sources
+// Documentation: https://expressjs.com/en/resources/middleware/cors.html
+app.use(cors());
 const port = process.env.PORT;
 const bicycle_base: string = "https://data.cityofchicago.org/resource/u6pd-qa9d.json?person_type=BICYCLE&$limit=100";
 
@@ -67,7 +72,7 @@ function fillCrashData(bicycle: Bicyclist, data: Crash): Crash {
 }
 
 app.get("/", (req: Request, res: Response) => {
-  let currentBicyclists: Bicyclist[] = [];
+  let currentBicyclists: IBicyclist[] = [];
   let crashIDs: string[] = [];
   let crashResults: Crash[] = [];
   axios
@@ -75,18 +80,21 @@ app.get("/", (req: Request, res: Response) => {
     .then((response) => {
       for (let i = 0; i < response.data.length; i++) {
         currentBicyclists.push(fillBicyclistData(response.data[i]));
+        // currentBicyclists.push(new Bicyclist(response.data));
         crashIDs.push(`'${response.data[i].crash_record_id}'`);
       }
-      let CrashIDsStr = crashIDs.join(", ");
+      console.log(currentBicyclists);
       axios
         .get(`https://data.cityofchicago.org/resource/85ca-t3if.json?$where=crash_record_id in(${crashIDs})`)
         .then((response) => {
           for (let i = 0; i < response.data.length; i++) {
             // The ensure method is checking if currentBicyclists is empty.
-            const found: Bicyclist = ensure(
+            const found: IBicyclist = ensure(
               currentBicyclists.find((element) => element.crash_record_id === response.data[i].crash_record_id)
             );
             crashResults.push(fillCrashData(found, response.data[i]));
+            // crashResults.push(new Crash(response.data));
+            console.log(crashResults);
           }
           res.json(crashResults);
         })
