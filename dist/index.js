@@ -79,7 +79,6 @@ app.get("/", (req, res) => {
             // currentBicyclists.push(new Bicyclist(response.data));
             crashIDs.push(`'${response.data[i].crash_record_id}'`);
         }
-        console.log(currentBicyclists);
         axios_1.default
             .get(`https://data.cityofchicago.org/resource/85ca-t3if.json?$where=crash_record_id in(${crashIDs})`)
             .then((response) => {
