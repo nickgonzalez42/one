@@ -46,7 +46,7 @@
     ·
     <a href="https://github.com/nickgonzalez42/one/issues">Request Feature</a>
     ·
-    <a href="https://github.com/nickgonzalez42/bicycle-map">Front Repo</a>
+    <a href="https://github.com/nickgonzalez42/bicycle-map">Frontend Repo</a>
   </p>
 </div>
 
