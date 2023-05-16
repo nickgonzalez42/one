@@ -1,4 +1,4 @@
-import express, { Express, Request, Response } from "express";
+import express, { Express, Request, Response, response } from "express";
 import dotenv from "dotenv";
 import axios from "axios";
 
@@ -14,6 +14,8 @@ const app: Express = express();
 app.use(cors());
 const port = process.env.PORT;
 const bicycle_base: string = "https://data.cityofchicago.org/resource/u6pd-qa9d.json?person_type=BICYCLE&$limit=100";
+const fatal_base: string =
+  "https://data.cityofchicago.org/resource/u6pd-qa9d.json?injury_classification=FATAL&person_type=BICYCLE&$limit=100";
 
 function ensure<T>(argument: T | undefined | null, message: string = "This value was promised to be there."): T {
   if (argument === undefined || argument === null) {
@@ -71,6 +73,30 @@ function fillCrashData(bicycle: Bicyclist, data: Crash): Crash {
   });
 }
 
+function getCrashes(crashIDs: string, currentBicyclists: IBicyclist[]): Crash[] {
+  let crashResults: Crash[] = [];
+
+  axios
+    .get(`https://data.cityofchicago.org/resource/85ca-t3if.json?$where=crash_record_id in(${crashIDs})`)
+    .then((response) => {
+      for (let i = 0; i < response.data.length; i++) {
+        // The ensure method is checking if currentBicyclists is empty.
+        const found: IBicyclist = ensure(
+          currentBicyclists.find((element) => element.crash_record_id === response.data[i].crash_record_id)
+        );
+        crashResults.push(fillCrashData(found, response.data[i]));
+        // crashResults.push(new Crash(response.data));
+        console.log(crashResults);
+      }
+      // res.json(crashResults);
+    })
+    .catch((error) => {
+      console.log(error.data);
+    });
+  console.log(crashResults);
+  return crashResults;
+}
+
 app.get("/", (req: Request, res: Response) => {
   let currentBicyclists: IBicyclist[] = [];
   let crashIDs: string[] = [];
@@ -105,6 +131,12 @@ app.get("/", (req: Request, res: Response) => {
       res.send(error);
     });
 });
+
+// app.get("/fatalities", (req: Request, res: Response) => {
+//   axios.get(fatal_base).then((response) => {
+
+//   });
+// });
 
 app.listen(port, () => {
   console.log(`⚡️[server]: Server is now running at http://localhost:${port}`);

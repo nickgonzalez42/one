@@ -14,6 +14,7 @@ const app = (0, express_1.default)();
 app.use(cors());
 const port = process.env.PORT;
 const bicycle_base = "https://data.cityofchicago.org/resource/u6pd-qa9d.json?person_type=BICYCLE&$limit=100";
+const fatal_base = "https://data.cityofchicago.org/resource/u6pd-qa9d.json?injury_classification=FATAL&person_type=BICYCLE&$limit=100";
 function ensure(argument, message = "This value was promised to be there.") {
     if (argument === undefined || argument === null) {
         throw new TypeError(message);
@@ -67,6 +68,26 @@ function fillCrashData(bicycle, data) {
         longitude: data.longitude,
     });
 }
+function getCrashes(crashIDs, currentBicyclists) {
+    let crashResults = [];
+    axios_1.default
+        .get(`https://data.cityofchicago.org/resource/85ca-t3if.json?$where=crash_record_id in(${crashIDs})`)
+        .then((response) => {
+        for (let i = 0; i < response.data.length; i++) {
+            // The ensure method is checking if currentBicyclists is empty.
+            const found = ensure(currentBicyclists.find((element) => element.crash_record_id === response.data[i].crash_record_id));
+            crashResults.push(fillCrashData(found, response.data[i]));
+            // crashResults.push(new Crash(response.data));
+            console.log(crashResults);
+        }
+        // res.json(crashResults);
+    })
+        .catch((error) => {
+        console.log(error.data);
+    });
+    console.log(crashResults);
+    return crashResults;
+}
 app.get("/", (req, res) => {
     let currentBicyclists = [];
     let crashIDs = [];
@@ -99,6 +120,10 @@ app.get("/", (req, res) => {
         res.send(error);
     });
 });
+// app.get("/fatalities", (req: Request, res: Response) => {
+//   axios.get(fatal_base).then((response) => {
+//   });
+// });
 app.listen(port, () => {
     console.log(`⚡️[server]: Server is now running at http://localhost:${port}`);
 });
