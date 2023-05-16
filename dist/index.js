@@ -1,4 +1,13 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -68,62 +77,77 @@ function fillCrashData(bicycle, data) {
         longitude: data.longitude,
     });
 }
-function getCrashes(crashIDs, currentBicyclists) {
-    let crashResults = [];
-    axios_1.default
-        .get(`https://data.cityofchicago.org/resource/85ca-t3if.json?$where=crash_record_id in(${crashIDs})`)
-        .then((response) => {
-        for (let i = 0; i < response.data.length; i++) {
-            // The ensure method is checking if currentBicyclists is empty.
-            const found = ensure(currentBicyclists.find((element) => element.crash_record_id === response.data[i].crash_record_id));
-            crashResults.push(fillCrashData(found, response.data[i]));
-            // crashResults.push(new Crash(response.data));
-            console.log(crashResults);
-        }
-        // res.json(crashResults);
-    })
-        .catch((error) => {
-        console.log(error.data);
+function getCrashes(crashIDs) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let response = [];
+        yield axios_1.default
+            .get(`https://data.cityofchicago.org/resource/85ca-t3if.json?$where=crash_record_id in(${crashIDs})`)
+            .then((res) => {
+            response = res.data;
+        })
+            .catch((error) => {
+            console.log(error);
+        });
+        return response;
     });
-    console.log(crashResults);
+}
+function consolidateData(response, currentBicyclists) {
+    let crashResults = [];
+    for (let i = 0; i < response.length; i++) {
+        // The ensure method is checking if currentBicyclists is empty.
+        const found = ensure(currentBicyclists.find((element) => element.crash_record_id === response[i].crash_record_id));
+        crashResults.push(fillCrashData(found, response[i]));
+    }
     return crashResults;
 }
 app.get("/", (req, res) => {
     let currentBicyclists = [];
     let crashIDs = [];
     let crashResults = [];
+    let initCrashes = [];
     axios_1.default
         .get(bicycle_base)
         .then((response) => {
         for (let i = 0; i < response.data.length; i++) {
             currentBicyclists.push(fillBicyclistData(response.data[i]));
-            // currentBicyclists.push(new Bicyclist(response.data));
             crashIDs.push(`'${response.data[i].crash_record_id}'`);
         }
-        axios_1.default
-            .get(`https://data.cityofchicago.org/resource/85ca-t3if.json?$where=crash_record_id in(${crashIDs})`)
-            .then((response) => {
-            for (let i = 0; i < response.data.length; i++) {
-                // The ensure method is checking if currentBicyclists is empty.
-                const found = ensure(currentBicyclists.find((element) => element.crash_record_id === response.data[i].crash_record_id));
-                crashResults.push(fillCrashData(found, response.data[i]));
-                // crashResults.push(new Crash(response.data));
-                console.log(crashResults);
-            }
+        getCrashes(crashIDs).then((result) => {
+            initCrashes = result;
+            crashResults = consolidateData(initCrashes, currentBicyclists);
             res.json(crashResults);
-        })
-            .catch((error) => {
-            console.log(error.data);
         });
     })
         .catch((error) => {
+        console.log(error);
         res.send(error);
     });
 });
-// app.get("/fatalities", (req: Request, res: Response) => {
-//   axios.get(fatal_base).then((response) => {
-//   });
-// });
+app.get("/fatalities", (req, res) => {
+    let currentBicyclists = [];
+    let crashIDs = [];
+    let crashResults = [];
+    let initCrashes = [];
+    axios_1.default
+        .get(fatal_base)
+        .then((response) => {
+        for (let i = 0; i < response.data.length; i++) {
+            currentBicyclists.push(fillBicyclistData(response.data[i]));
+            crashIDs.push(`'${response.data[i].crash_record_id}'`);
+        }
+        getCrashes(crashIDs).then((result) => {
+            initCrashes = result;
+            console.log("INIT" + initCrashes);
+            crashResults = consolidateData(initCrashes, currentBicyclists);
+            console.log("RES" + crashResults);
+            res.json(crashResults);
+        });
+    })
+        .catch((error) => {
+        console.log(error);
+        res.send(error);
+    });
+});
 app.listen(port, () => {
     console.log(`⚡️[server]: Server is now running at http://localhost:${port}`);
 });

@@ -73,27 +73,28 @@ function fillCrashData(bicycle: Bicyclist, data: Crash): Crash {
   });
 }
 
-function getCrashes(crashIDs: string, currentBicyclists: IBicyclist[]): Crash[] {
-  let crashResults: Crash[] = [];
-
-  axios
+async function getCrashes(crashIDs: string[]): Promise<Crash[]> {
+  let response: Crash[] = [];
+  await axios
     .get(`https://data.cityofchicago.org/resource/85ca-t3if.json?$where=crash_record_id in(${crashIDs})`)
-    .then((response) => {
-      for (let i = 0; i < response.data.length; i++) {
-        // The ensure method is checking if currentBicyclists is empty.
-        const found: IBicyclist = ensure(
-          currentBicyclists.find((element) => element.crash_record_id === response.data[i].crash_record_id)
-        );
-        crashResults.push(fillCrashData(found, response.data[i]));
-        // crashResults.push(new Crash(response.data));
-        console.log(crashResults);
-      }
-      // res.json(crashResults);
+    .then((res) => {
+      response = res.data;
     })
     .catch((error) => {
-      console.log(error.data);
+      console.log(error);
     });
-  console.log(crashResults);
+  return response;
+}
+
+function consolidateData(response: Crash[], currentBicyclists: IBicyclist[]): Crash[] {
+  let crashResults: Crash[] = [];
+  for (let i = 0; i < response.length; i++) {
+    // The ensure method is checking if currentBicyclists is empty.
+    const found: IBicyclist = ensure(
+      currentBicyclists.find((element) => element.crash_record_id === response[i].crash_record_id)
+    );
+    crashResults.push(fillCrashData(found, response[i]));
+  }
   return crashResults;
 }
 
@@ -101,42 +102,51 @@ app.get("/", (req: Request, res: Response) => {
   let currentBicyclists: IBicyclist[] = [];
   let crashIDs: string[] = [];
   let crashResults: Crash[] = [];
+  let initCrashes: Crash[] = [];
   axios
     .get(bicycle_base)
     .then((response) => {
       for (let i = 0; i < response.data.length; i++) {
         currentBicyclists.push(fillBicyclistData(response.data[i]));
-        // currentBicyclists.push(new Bicyclist(response.data));
         crashIDs.push(`'${response.data[i].crash_record_id}'`);
       }
-      axios
-        .get(`https://data.cityofchicago.org/resource/85ca-t3if.json?$where=crash_record_id in(${crashIDs})`)
-        .then((response) => {
-          for (let i = 0; i < response.data.length; i++) {
-            // The ensure method is checking if currentBicyclists is empty.
-            const found: IBicyclist = ensure(
-              currentBicyclists.find((element) => element.crash_record_id === response.data[i].crash_record_id)
-            );
-            crashResults.push(fillCrashData(found, response.data[i]));
-            // crashResults.push(new Crash(response.data));
-            console.log(crashResults);
-          }
-          res.json(crashResults);
-        })
-        .catch((error) => {
-          console.log(error.data);
-        });
+      getCrashes(crashIDs).then((result) => {
+        initCrashes = result;
+        crashResults = consolidateData(initCrashes, currentBicyclists);
+        res.json(crashResults);
+      });
     })
     .catch((error) => {
+      console.log(error);
       res.send(error);
     });
 });
 
-// app.get("/fatalities", (req: Request, res: Response) => {
-//   axios.get(fatal_base).then((response) => {
-
-//   });
-// });
+app.get("/fatalities", (req: Request, res: Response) => {
+  let currentBicyclists: IBicyclist[] = [];
+  let crashIDs: string[] = [];
+  let crashResults: Crash[] = [];
+  let initCrashes: Crash[] = [];
+  axios
+    .get(fatal_base)
+    .then((response) => {
+      for (let i = 0; i < response.data.length; i++) {
+        currentBicyclists.push(fillBicyclistData(response.data[i]));
+        crashIDs.push(`'${response.data[i].crash_record_id}'`);
+      }
+      getCrashes(crashIDs).then((result) => {
+        initCrashes = result;
+        console.log("INIT" + initCrashes);
+        crashResults = consolidateData(initCrashes, currentBicyclists);
+        console.log("RES" + crashResults);
+        res.json(crashResults);
+      });
+    })
+    .catch((error) => {
+      console.log(error);
+      res.send(error);
+    });
+});
 
 app.listen(port, () => {
   console.log(`⚡️[server]: Server is now running at http://localhost:${port}`);
