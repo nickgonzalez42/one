@@ -4,18 +4,29 @@ import axios from "axios";
 
 import { Bicyclist, Crash, IBicyclist, ICrash } from "./types";
 
+// Config
 var cors = require("cors");
-
 dotenv.config();
-
 const app: Express = express();
 // Change to not allow requests from all sources
 // Documentation: https://expressjs.com/en/resources/middleware/cors.html
 app.use(cors());
 const port = process.env.PORT;
+
+// global variables
 const bicycle_base: string = "https://data.cityofchicago.org/resource/u6pd-qa9d.json?person_type=BICYCLE&$limit=100";
 const fatal_base: string =
-  "https://data.cityofchicago.org/resource/u6pd-qa9d.json?injury_classification=FATAL&person_type=BICYCLE&$limit=100";
+  "https://data.cityofchicago.org/resource/u6pd-qa9d.json?person_type=BICYCLE&$limit=100&injury_classification=FATAL";
+
+const crashTypes = [
+  "NO INDICATION OF INJURY",
+  "REPORTED, NOT EVIDENT",
+  "NONINCAPACITATING INJURY",
+  "INCAPACITATING INJURY",
+  "FATAL",
+  "ALL",
+] as readonly string[];
+type CrashType = (typeof crashTypes)[number];
 
 function ensure<T>(argument: T | undefined | null, message: string = "This value was promised to be there."): T {
   if (argument === undefined || argument === null) {
@@ -98,37 +109,77 @@ function consolidateData(response: Crash[], currentBicyclists: IBicyclist[]): Cr
   return crashResults;
 }
 
-app.get("/", (req: Request, res: Response) => {
-  let currentBicyclists: IBicyclist[] = [];
-  let crashIDs: string[] = [];
-  let crashResults: Crash[] = [];
-  let initCrashes: Crash[] = [];
-  axios
-    .get(bicycle_base)
-    .then((response) => {
-      for (let i = 0; i < response.data.length; i++) {
-        currentBicyclists.push(fillBicyclistData(response.data[i]));
-        crashIDs.push(`'${response.data[i].crash_record_id}'`);
-      }
-      getCrashes(crashIDs).then((result) => {
-        initCrashes = result;
-        crashResults = consolidateData(initCrashes, currentBicyclists);
-        res.json(crashResults);
-      });
-    })
-    .catch((error) => {
-      console.log(error);
-      res.send(error);
-    });
-});
+// app.get("/", (req: Request, res: Response) => {
+//   let currentBicyclists: IBicyclist[] = [];
+//   let crashIDs: string[] = [];
+//   let crashResults: Crash[] = [];
+//   let initCrashes: Crash[] = [];
+//   axios
+//     .get(bicycle_base)
+//     .then((response) => {
+//       for (let i = 0; i < response.data.length; i++) {
+//         currentBicyclists.push(fillBicyclistData(response.data[i]));
+//         crashIDs.push(`'${response.data[i].crash_record_id}'`);
+//       }
+//       getCrashes(crashIDs).then((result) => {
+//         initCrashes = result;
+//         crashResults = consolidateData(initCrashes, currentBicyclists);
+//         res.json(crashResults);
+//       });
+//     })
+//     .catch((error) => {
+//       console.log(error);
+//       res.send(error);
+//     });
+// });
 
-app.get("/fatalities", (req: Request, res: Response) => {
+// app.get("/fatalities", (req: Request, res: Response) => {
+//   let currentBicyclists: IBicyclist[] = [];
+//   let crashIDs: string[] = [];
+//   let crashResults: Crash[] = [];
+//   let initCrashes: Crash[] = [];
+//   axios
+//     .get(fatal_base)
+//     .then((response) => {
+//       for (let i = 0; i < response.data.length; i++) {
+//         currentBicyclists.push(fillBicyclistData(response.data[i]));
+//         crashIDs.push(`'${response.data[i].crash_record_id}'`);
+//       }
+//       getCrashes(crashIDs).then((result) => {
+//         initCrashes = result;
+//         crashResults = consolidateData(initCrashes, currentBicyclists);
+//         res.json(crashResults);
+//       });
+//     })
+//     .catch((error) => {
+//       console.log(error);
+//       res.send(error);
+//     });
+// });
+
+function parseCrashType(type: string): CrashType {
+  const maybeCrashType: unknown = type;
+  if (typeof maybeCrashType === "string" && crashTypes.includes(maybeCrashType)) {
+    console.log("Returning Crash Type");
+    return maybeCrashType as CrashType; // type assertion satisfies compiler
+  }
+  throw new Error("That is not a crash type.");
+}
+
+app.get("/:type", (req: Request, res: Response) => {
+  console.log("INITIAL " + req.params.type);
+  let base = bicycle_base;
+  let type = parseCrashType(req.params.type);
+  if (type != "ALL") {
+    base += `&injury_classification=${req.params.type}`;
+  }
+  console.log(base);
   let currentBicyclists: IBicyclist[] = [];
   let crashIDs: string[] = [];
   let crashResults: Crash[] = [];
   let initCrashes: Crash[] = [];
   axios
-    .get(fatal_base)
+    .get(base)
     .then((response) => {
       for (let i = 0; i < response.data.length; i++) {
         currentBicyclists.push(fillBicyclistData(response.data[i]));
@@ -136,9 +187,7 @@ app.get("/fatalities", (req: Request, res: Response) => {
       }
       getCrashes(crashIDs).then((result) => {
         initCrashes = result;
-        console.log("INIT" + initCrashes);
         crashResults = consolidateData(initCrashes, currentBicyclists);
-        console.log("RES" + crashResults);
         res.json(crashResults);
       });
     })
